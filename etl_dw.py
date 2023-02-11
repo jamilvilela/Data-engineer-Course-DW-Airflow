@@ -18,6 +18,8 @@ default_args = {
     'retry_delay': timedelta(minutes=5)
 }
 
+data_source = '/opt/airflow/dags/data/'
+
 # DAG
 dag_lab6_etl = DAG(dag_id = 'lab6-dw-postgres',
                    default_args = default_args,
@@ -30,7 +32,7 @@ dag_lab6_etl = DAG(dag_id = 'lab6-dw-postgres',
 def CSV_file_extraction():
     values = []
     
-    with open('DIM_CLIENTE.csv', 'r') as file:
+    with open(data_source + 'DIM_CLIENTE.csv', 'r') as file:
         reader = csv.reader(file)
         
         for row in reader:
