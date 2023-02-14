@@ -1,12 +1,8 @@
 import csv
+from datetime import datetime, timedelta
 import airflow
-import time
-import pandas as pd
-from datetime import datetime
-from datetime import timedelta
-from airflow import DAG
-from airflow.operators.python import get_current_context
-from airflow.operators.python_operator import PythonOperator
+import airflow.utils as airflow_utils
+from airflow.decorators import dag, task
 from airflow.operators.postgres_operator import PostgresOperator
 from airflow.utils.dates import days_ago
 
@@ -44,68 +40,70 @@ mapping = {'params':
             }
         }
 
-# DAG
-dag_dw_load = DAG(dag_id = 'dw-load',
-                   default_args = default_args,
-                   schedule_interval = '0 0/2 * * *',
-                   dagrun_timeout = timedelta(minutes=60),
-                   description = 'Loading into DW',
-                   start_date = airflow.utils.dates.days_ago(1)
-                   )
+@dag(
+      default_args = default_args,
+      schedule_interval = '0 0/2 * * *',
+      dagrun_timeout = timedelta(minutes=60),
+      description = 'Loading into DW',
+      start_date = airflow.utils.dates.days_ago(1)
+)
+def dag_dw_load():
+      
+      def quotify(line):
+      ### This function will place quotes before and after the values if it is a string type
 
-def quotify(line):
-### This function will place quotes before and after the values if it is a string type
-    
-    for field in line:
+            for field in line:
 
-        if mapping['params']['0']['fields'][field] == 'string':
-            line[field] = '\'%s\'' % (line[field])
+                  if mapping['params']['0']['fields'][field] == 'string':
+                        line[field] = '\"%s\"' % (line[field])
             
-    return line
-    
-def csv_file_extraction(**kwargs):
-### This function read the CSV file for loading into DW 
-    data_map = kwargs['params']
-    path     = data_map['csv_file_path']
-    file     = data_map['0']['csv_file_name']
-    table    = data_map['0']['table_name']
-    fields_name = data_map['0']['fields'].keys()
-    
-    with open(path + file, 'r') as file:
-        reader = csv.DictReader(file)
-        
-        # file data
-        for item in reader:
-            data = dict(item)
-        
-            line = quotify(line)
-        
-            query = query + 'insert into lab6.%s (%s) values (%s); \n' % (table, 
-                                                                          ','.join(fields_name), 
-                                                                          ','.join([value for value in line.values()])) 
-        print(query)
+            return line
 
-# Python operator
-read_csv_task = PythonOperator(task_id = 'read_csv_task',
-                               python_callable = csv_file_extraction,
-                               provide_context = True,
-                               op_kwargs = mapping,
-                               dag = dag_dw_load)
+      @task()    
+      def read_csv(map: dict):
+      ### This function read the CSV file for loading into DW 
+            data_map = map['params']
+            path     = data_map['csv_file_path']
+            file     = data_map['0']['csv_file_name']
+            data = list()
+            
+            with open(path + file, 'r') as file:
+                  reader = csv.DictReader(file)
+                  # file data
+                  for line in reader:
+                        line = quotify(dict(line))
+                        data.append(line)
+            return data
 
-# Postgres Operator
-insert_data_postgres = PostgresOperator(task_id = 'ins_data_postgres',
-                                        sql = get_current_context()['query'],
+      @task()
+      def create_sql_cmd(data: list, map: dict):
+            """
+            this function receives the all csv file content in a list 
+            and generates one sql command for each line of the file
+            """                  
+            data_map    = map['params']
+            table       = data_map['0']['table_name']
+            fields_name = data_map['0']['fields'].keys()
+
+            sql_cmd = ''
+            for line in data:
+                  sql_cmd = sql_cmd + 'insert into lab6.%s (%s) values (%s); \n' % (table, 
+                                                                                    ','.join(fields_name), 
+                                                                                    ','.join([value for value in line.values()]))
+            return sql_cmd
+
+      @task()
+      def load_to_postgres(sql_cmd: str):
+            load = PostgresOperator(task_id = 'load_data_postgres',
+                                        sql = sql_cmd,
                                         postgres_conn_id = 'dw-postgresDB',
                                         dag = dag_dw_load)
 
-#insert_data_postgres.execute(context=kwargs)
+            return load.execute()
 
+      # upstram
+      data_file = read_csv(mapping)
+      sql_cmd   = create_sql_cmd(data_file, mapping)
+      load_to_postgres(sql_cmd)
 
-        
-
-    
-# upstram
-read_csv_task >> insert_data_postgres
-
-if __name__ == "__main__":
-    dag_dw_load.cli()
+dag_dw_load.cli()
