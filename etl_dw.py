@@ -1,4 +1,6 @@
 import csv
+import json
+import collections
 from datetime import datetime, timedelta
 import airflow
 import airflow.utils as airflow_utils
@@ -15,85 +17,91 @@ default_args = {
     'retry_delay': timedelta(minutes=5)
 }
 
-mapping = {'params': 
-            {'csv_file_path': '/opt/airflow/dags/data/',
-             '0': {'csv_file_name' : 'DIM_CLIENTE.csv',
-                    'table_name'   : 'DIM_CLIENTE',
-                    'fields'  : {'id_cliente'       : 'int',
-                                 'nome_cliente'     : 'string',
-                                 'sobrenome_cliente': 'string'}
-                    },
-             '1': {'csv_file_name': 'DIM_DATA.csv',
-                   'table_name'   : 'DIM_DATA'},
-             '2': {'csv_file_name': 'DIM_DEPOSITO.csv',
-                   'table_name'   : 'DIM_DEPOSITO'},
-             '3': {'csv_file_name': 'DIM_ENTREGA.csv',
-                   'table_name'   : 'DIM_ENTREGA'},
-             '4': {'csv_file_name': 'DIM_FRETE.csv',
-                   'table_name'   : 'DIM_FRETE'},
-             '5': {'csv_file_name': 'DIM_PAGAMENTO.csv',
-                   'table_name'   : 'DIM_PAGAMENTO'},
-             '6': {'csv_file_name': 'DIM_TRANSPORTADORA.csv',
-                   'table_name'   : 'DIM_TRANSPORTADORA'},
-             '7': {'csv_file_name': 'TB_FATO.csv',
-                   'table_name'   : 'TB_FATO'}
-            }
-        }
+with open('/opt/airflow/dags/data-map/map.config', 'r') as conf:
+      mapping = json.loads(conf.read())
 
 @dag(
       default_args = default_args,
       schedule_interval = '0 0/2 * * *',
       dagrun_timeout = timedelta(minutes=60),
       description = 'Loading into DW',
-      start_date = airflow.utils.dates.days_ago(1)
+      start_date = days_ago(1)
 )
 def dag_dw_load():
       
-      def quotify(line):
-      ### This function will place quotes before and after the values if it is a string type
+      def quotify(line, map_number):
+            """
+            This function will place quotes before and after the values if it is a string type
+            """
 
-            for field in line:
+            for field, value in line.items():
 
-                  if mapping['params']['0']['fields'][field] == 'string':
-                        line[field] = '\"%s\"' % (line[field])
+                  if mapping['params'][str(map_number)]['fields'][field] in ['string', 'datetime']:
+                        line[field] = f'"{value}"'
             
             return line
-
+      
       @task()    
-      def read_csv(map: dict):
-      ### This function read the CSV file for loading into DW 
-            data_map = map['params']
+      def read_csv(map_number: int):
+            """
+            This function read the CSV file for loading into DW.
+            If the column names are different from data mapping config, this function will return an empty list
+            """
+             
+            data_map = mapping['params']
             path     = data_map['csv_file_path']
-            file     = data_map['0']['csv_file_name']
-            data = list()
+            file     = data_map[str(map_number)]['csv_file_name']
+            fields_name = data_map[str(map_number)]['fields'].keys()
+            data = []
             
-            with open(path + file, 'r') as file:
+            with open(f'{path}{file}', 'r') as file:
                   reader = csv.DictReader(file)
-                  # file data
+                                    
+                  if collections.Counter(reader.fieldnames) != collections.Counter(fields_name):   
+                        print('The file columns are different from data mapping. \nIngestion process aborted.')
+                        return []
+
                   for line in reader:
-                        line = quotify(dict(line))
+                        line = quotify(dict(line), map_number)
                         data.append(line)
+            
             return data
 
       @task()
-      def create_sql_cmd(data: list, map: dict):
+      def create_sql_cmd(data: list, map_number: int):
             """
             this function receives the all csv file content in a list 
             and generates one sql command for each line of the file
             """                  
-            data_map    = map['params']
-            table       = data_map['0']['table_name']
-            fields_name = data_map['0']['fields'].keys()
-
-            sql_cmd = ''
+            data_map    = mapping['params']
+            table       = data_map[str(map_number)]['table_name']
+            fields_name = data_map[str(map_number)]['fields'].keys()
+            unique_key  = data_map[str(map_number)]['unique_key']
+            sql_cmd     = ''
+            update_fields=''
+                        
             for line in data:
-                  sql_cmd = sql_cmd + 'insert into lab6.%s (%s) values (%s); \n' % (table, 
-                                                                                    ','.join(fields_name), 
-                                                                                    ','.join([value for value in line.values()]))
+                  
+                  insert_values = [value for value in line.values()]                  
+                  update_fields = [ f'{key}={value}' for key,value in line.items() if key != unique_key ]
+
+                  sql_cmd +=  '''
+                              insert into lab6.%s (%s) values (%s) 
+                              on conflict(%s) 
+                              do update set (%s); \n
+                              ''' % (table, 
+                                     ','.join(fields_name), 
+                                     ','.join(insert_values),
+                                     unique_key,
+                                     ','.join(update_fields)
+                                    )
             return sql_cmd
 
       @task()
       def load_to_postgres(sql_cmd: str):
+            """
+            This function loads the data into Postgres using the SQL command.
+            """
             load = PostgresOperator(task_id = 'load_data_postgres',
                                         sql = sql_cmd,
                                         postgres_conn_id = 'dw-postgresDB',
@@ -102,8 +110,10 @@ def dag_dw_load():
             return load.execute()
 
       # upstram
-      data_file = read_csv(mapping)
-      sql_cmd   = create_sql_cmd(data_file, mapping)
-      load_to_postgres(sql_cmd)
+      # loop reading all source files
+      for file_number in range(8):
+            data_file = read_csv(file_number)
+            sql_cmd   = create_sql_cmd(data_file, file_number)
+            load_to_postgres(sql_cmd)
 
-dag_dw_load.cli()
+dag_dw_load_cli = dag_dw_load()
