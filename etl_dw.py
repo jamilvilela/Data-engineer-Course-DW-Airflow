@@ -63,7 +63,7 @@ def dag_dw_load():
             for field, value in line.items():
 
                   if data_map['fields'][field] in ['string', 'datetime']:
-                        line[field] = f'"{value}"'
+                        line[field] = f"'{value}'"
             
             return line
       
@@ -124,7 +124,7 @@ def dag_dw_load():
                               insert into lab6.{table} ({fields_name}) 
                               values ({insert_values}) 
                               on conflict({unique_key}) 
-                              do update set ({update_fields});
+                              do update set {update_fields};
                               ''' 
 
             logging.debug( f'Total commands: {len(data)}' )

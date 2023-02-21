@@ -318,3 +318,163 @@
                               do update set (valor_entrega=2900);
                               
 2023-02-21 03:22:41,265 - INFO - ----------------------- DAG process finished -----------------------
+2023-02-21 18:49:10,670 - DEBUG - Open file: /root/python3/Data-engineer-Course-DW-Airflow/logistics/data-map/map.json
+2023-02-21 18:49:10,673 - INFO - --------------------- Starting the DAG process ---------------------
+2023-02-21 18:49:10,674 - INFO - Open file: DIM_CLIENTE.csv
+2023-02-21 18:49:10,675 - INFO - Total lines read: 3
+2023-02-21 18:49:10,675 - INFO - Total commands: 3
+2023-02-21 18:49:10,678 - DEBUG - 
+                              insert into lab6.DIM_CLIENTE (id_cliente,nome_cliente,sobrenome_cliente) 
+                              values (100,'Bob','Farias') 
+                              on conflict(id_cliente) 
+                              do update set nome_cliente='Bob',sobrenome_cliente='Farias';
+                              
+                              insert into lab6.DIM_CLIENTE (id_cliente,nome_cliente,sobrenome_cliente) 
+                              values (101,'Maria','Tavares') 
+                              on conflict(id_cliente) 
+                              do update set nome_cliente='Maria',sobrenome_cliente='Tavares';
+                              
+                              insert into lab6.DIM_CLIENTE (id_cliente,nome_cliente,sobrenome_cliente) 
+                              values (103,'John','Snow') 
+                              on conflict(id_cliente) 
+                              do update set nome_cliente='John',sobrenome_cliente='Snow';
+                              
+2023-02-21 18:49:10,679 - INFO - Open file: DIM_DATA.csv
+2023-02-21 18:49:10,680 - INFO - Total lines read: 3
+2023-02-21 18:49:10,681 - INFO - Total commands: 3
+2023-02-21 18:49:10,681 - DEBUG - 
+                              insert into lab6.DIM_DATA (id_data,data_completa,dia,mes,ano) 
+                              values (100,'10/10/2010',10,10,2010) 
+                              on conflict(id_data) 
+                              do update set data_completa='10/10/2010',dia=10,mes=10,ano=2010;
+                              
+                              insert into lab6.DIM_DATA (id_data,data_completa,dia,mes,ano) 
+                              values (101,'11/10/2010',11,10,2010) 
+                              on conflict(id_data) 
+                              do update set data_completa='11/10/2010',dia=11,mes=10,ano=2010;
+                              
+                              insert into lab6.DIM_DATA (id_data,data_completa,dia,mes,ano) 
+                              values (102,'12/10/2010',12,10,2010) 
+                              on conflict(id_data) 
+                              do update set data_completa='12/10/2010',dia=12,mes=10,ano=2010;
+                              
+2023-02-21 18:49:10,681 - INFO - Open file: DIM_DEPOSITO.csv
+2023-02-21 18:49:10,682 - INFO - Total lines read: 3
+2023-02-21 18:49:10,682 - INFO - Total commands: 3
+2023-02-21 18:49:10,682 - DEBUG - 
+                              insert into lab6.DIM_DEPOSITO (id_deposito,nome_deposito) 
+                              values (100,'Dep1') 
+                              on conflict(id_deposito) 
+                              do update set nome_deposito='Dep1';
+                              
+                              insert into lab6.DIM_DEPOSITO (id_deposito,nome_deposito) 
+                              values (101,'Dep2') 
+                              on conflict(id_deposito) 
+                              do update set nome_deposito='Dep2';
+                              
+                              insert into lab6.DIM_DEPOSITO (id_deposito,nome_deposito) 
+                              values (102,'Dep3') 
+                              on conflict(id_deposito) 
+                              do update set nome_deposito='Dep3';
+                              
+2023-02-21 18:49:10,683 - INFO - Open file: DIM_ENTREGA.csv
+2023-02-21 18:49:10,684 - INFO - Total lines read: 3
+2023-02-21 18:49:10,684 - INFO - Total commands: 3
+2023-02-21 18:49:10,684 - DEBUG - 
+                              insert into lab6.DIM_ENTREGA (id_entrega,endereco_entrega,pais_entrega) 
+                              values (100,'RuaA','Brasil') 
+                              on conflict(id_entrega) 
+                              do update set endereco_entrega='RuaA',pais_entrega='Brasil';
+                              
+                              insert into lab6.DIM_ENTREGA (id_entrega,endereco_entrega,pais_entrega) 
+                              values (101,'RuaB','Brasil') 
+                              on conflict(id_entrega) 
+                              do update set endereco_entrega='RuaB',pais_entrega='Brasil';
+                              
+                              insert into lab6.DIM_ENTREGA (id_entrega,endereco_entrega,pais_entrega) 
+                              values (102,'RuaC','Brasil') 
+                              on conflict(id_entrega) 
+                              do update set endereco_entrega='RuaC',pais_entrega='Brasil';
+                              
+2023-02-21 18:49:10,684 - INFO - Open file: DIM_FRETE.csv
+2023-02-21 18:49:10,684 - INFO - Total lines read: 2
+2023-02-21 18:49:10,685 - INFO - Total commands: 2
+2023-02-21 18:49:10,685 - DEBUG - 
+                              insert into lab6.DIM_FRETE (id_frete,tipo_frete) 
+                              values (100,'expresso') 
+                              on conflict(id_frete) 
+                              do update set tipo_frete='expresso';
+                              
+                              insert into lab6.DIM_FRETE (id_frete,tipo_frete) 
+                              values (101,'normal') 
+                              on conflict(id_frete) 
+                              do update set tipo_frete='normal';
+                              
+2023-02-21 18:49:10,685 - INFO - Open file: DIM_PAGAMENTO.csv
+2023-02-21 18:49:10,685 - INFO - Total lines read: 3
+2023-02-21 18:49:10,686 - INFO - Total commands: 3
+2023-02-21 18:49:10,686 - DEBUG - 
+                              insert into lab6.DIM_PAGAMENTO (id_pagamento,tipo_pagamento) 
+                              values (100,'Boleto') 
+                              on conflict(id_pagamento) 
+                              do update set tipo_pagamento='Boleto';
+                              
+                              insert into lab6.DIM_PAGAMENTO (id_pagamento,tipo_pagamento) 
+                              values (101,'PayPal') 
+                              on conflict(id_pagamento) 
+                              do update set tipo_pagamento='PayPal';
+                              
+                              insert into lab6.DIM_PAGAMENTO (id_pagamento,tipo_pagamento) 
+                              values (102,'PagSeguro') 
+                              on conflict(id_pagamento) 
+                              do update set tipo_pagamento='PagSeguro';
+                              
+2023-02-21 18:49:10,686 - INFO - Open file: DIM_TRANSPORTADORA.csv
+2023-02-21 18:49:10,686 - INFO - Total lines read: 3
+2023-02-21 18:49:10,687 - INFO - Total commands: 3
+2023-02-21 18:49:10,687 - DEBUG - 
+                              insert into lab6.DIM_TRANSPORTADORA (id_transportadora,nome_transportadora) 
+                              values (100,'Transp1') 
+                              on conflict(id_transportadora) 
+                              do update set nome_transportadora='Transp1';
+                              
+                              insert into lab6.DIM_TRANSPORTADORA (id_transportadora,nome_transportadora) 
+                              values (101,'Transp2') 
+                              on conflict(id_transportadora) 
+                              do update set nome_transportadora='Transp2';
+                              
+                              insert into lab6.DIM_TRANSPORTADORA (id_transportadora,nome_transportadora) 
+                              values (102,'Transp3') 
+                              on conflict(id_transportadora) 
+                              do update set nome_transportadora='Transp3';
+                              
+2023-02-21 18:49:10,687 - INFO - Open file: TB_FATO.csv
+2023-02-21 18:49:10,687 - INFO - Total lines read: 5
+2023-02-21 18:49:10,688 - INFO - Total commands: 5
+2023-02-21 18:49:10,688 - DEBUG - 
+                              insert into lab6.TB_FATO (id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data,valor_entrega) 
+                              values (100,100,100,100,100,100,100,4500) 
+                              on conflict(id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data) 
+                              do update set valor_entrega=4500;
+                              
+                              insert into lab6.TB_FATO (id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data,valor_entrega) 
+                              values (100,101,102,100,100,100,100,3500) 
+                              on conflict(id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data) 
+                              do update set valor_entrega=3500;
+                              
+                              insert into lab6.TB_FATO (id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data,valor_entrega) 
+                              values (101,102,101,102,101,101,100,3800) 
+                              on conflict(id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data) 
+                              do update set valor_entrega=3800;
+                              
+                              insert into lab6.TB_FATO (id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data,valor_entrega) 
+                              values (102,102,101,102,101,101,102,2700) 
+                              on conflict(id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data) 
+                              do update set valor_entrega=2700;
+                              
+                              insert into lab6.TB_FATO (id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data,valor_entrega) 
+                              values (101,101,102,102,101,101,102,2900) 
+                              on conflict(id_cliente,id_transportadora,id_deposito,id_entrega,id_pagamento,id_frete,id_data) 
+                              do update set valor_entrega=2900;
+                              
+2023-02-21 18:49:10,688 - INFO - ----------------------- DAG process finished -----------------------
