@@ -71,13 +71,14 @@ def dag_dw_load():
             return line
         
       @task(task_id="open_map_file")
-      def open_map_file(path: str):
+      def open_map_file(path: str, i: int) -> dict:
             try:
                   
                   with open(path, 'r') as conf:
                         logging.debug(f'Open file: {path}')
-                        return json.loads(conf.read())
-                        
+                        map = json.loads(conf.read())
+                        return map['params'][str(i)]
+                  
             except FileNotFoundError as e:
                   raiseOnError(f'File not found. \nMSG: {e}')
             except IOError as e:
@@ -85,7 +86,7 @@ def dag_dw_load():
                   
 
       @task(task_id="read_csv")    
-      def read_csv(data_map: dict):
+      def read_csv(data_map: dict) -> list:
             """
             This function read the CSV file for loading into DW.
             If the column names are different from data mapping config, this function will return an empty list
@@ -125,7 +126,7 @@ def dag_dw_load():
 
             return data
 
-      @task()
+      @task(task_id="create_sql_cmd")
       def create_sql_cmd(data: list, data_map: dict) -> str:
             """
             this function receives the all csv file content in a list 
@@ -160,8 +161,8 @@ def dag_dw_load():
 
             return sql_cmd
 
-      @task()
-      def load_to_postgres(sql_cmd: str):
+      @task(task_id="load_to_postgres")
+      def load_to_postgres(sql_cmd: str) -> bool:
             """
             This function loads the data into Postgres using the SQL command.
             """
@@ -181,7 +182,7 @@ def dag_dw_load():
 
             return True
 
-      @task()
+      @task(task_id="move_file")
       def move_file(file: str, destiny: str):
             '''
             This function moves the file to the detiny directory
@@ -211,7 +212,7 @@ def dag_dw_load():
             except Exception as e:
                   raiseOnError(f'Copy file error. \nMSG: {e}')
 
-      @task()
+      @task(task_id="send_email")
       def send_email(dest: str):
             EmailOperator(task_id = 'send_email',
                           to =  dest,
@@ -226,7 +227,7 @@ def dag_dw_load():
             
    #   run_this_first = EmptyOperator(task_id="run_this_first")
       
-      open_map_file_task = open_map_file(map_path)
+   #   open_map_file_task = open_map_file(map_path)
       
     #  run_this_first >> open_map_file_task
 
@@ -235,24 +236,26 @@ def dag_dw_load():
             load_to_postgres_task = False
             create_sql_cmd_task = ''
             read_csv_task = []
-            data_map = {}
             
-            data_map = open_map_file_task['params'][str(file_number)]
             
-            read_csv_task         = read_csv(data_map)
-            create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
+            open_map_file_task = open_map_file(map_path, file_number)
+            
+#            data_map = open_map_file_task['params'][str(file_number)]
+            
+            read_csv_task         = read_csv(open_map_file_task)
+            create_sql_cmd_task   = create_sql_cmd(read_csv_task, open_map_file_task)
             load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
 
             destiny = process_path 
             if not load_to_postgres_task: #  there is an error
                   destiny = error_path   
             
-            move_file_task = move_file(data_map['csv_file_name'], destiny)
+            move_file_task = move_file(open_map_file_task['csv_file_name'], destiny)
             
             if load_to_postgres_task:
                   send_email_task = send_email('jamilvilela@gmail.com')
 
-            read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> send_email_task
+            open_map_file_task >> read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> send_email_task
       
       logging.info('----------------------- DAG process finished -----------------------')
 
