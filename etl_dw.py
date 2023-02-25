@@ -11,6 +11,7 @@ from airflow.decorators import dag, task
 from airflow.operators.postgres_operator import PostgresOperator
 from airflow.utils.dates import days_ago
 from airflow.operators.email import EmailOperator
+from airflow.operators.empty import EmptyOperator
 from datetime import datetime, timedelta
 
 #logging config
@@ -56,20 +57,6 @@ def dag_dw_load():
             """
             logging.error(error_message)
             raise ValueError(error_message)
-
-      def openFile(path: str):
-            try:
-                  
-                  with open(path, 'r') as conf:
-                        map = json.loads(conf.read())
-                        logging.debug(f'Open file: {path}')
-                        
-            except FileNotFoundError as e:
-                  raiseOnError(f'File not found. \nMSG: {e}')
-            except IOError as e:
-                  raiseOnError(f'Open error: {path}. \nMSG: {e}')
-                  
-            return map
       
       def quotify(line: dict, data_map: dict):
             """
@@ -83,6 +70,21 @@ def dag_dw_load():
             
             return line
         
+      @task()
+      def open_map_file(path: str):
+            try:
+                  
+                  with open(path, 'r') as conf:
+                        map = json.loads(conf.read())
+                        logging.debug(f'Open file: {path}')
+                        
+            except FileNotFoundError as e:
+                  raiseOnError(f'File not found. \nMSG: {e}')
+            except IOError as e:
+                  raiseOnError(f'Open error: {path}. \nMSG: {e}')
+                  
+            return map
+
       @task()    
       def read_csv(data_map: dict):
             """
@@ -223,7 +225,11 @@ def dag_dw_load():
 
       logging.info('--------------------- Starting the DAG process ---------------------')
             
-      file = openFile(map_path)
+      run_this_first = EmptyOperator(task_id="run_this_first")
+      
+      map_file = open_map_file(map_path)
+      
+      run_this_first >> map_file
 
       for file_number in range(8):
 
@@ -232,7 +238,7 @@ def dag_dw_load():
             data = []
             data_map = {}
             
-            data_map = file['params'][str(file_number)]
+            data_map = map_file['params'][str(file_number)]
             data     = read_csv(data_map)
             sql_cmd  = create_sql_cmd(data, data_map)
             load_done= load_to_postgres(sql_cmd)
@@ -246,6 +252,8 @@ def dag_dw_load():
             if load_done:
                   send_email('jamilvilela@gmail.com')
 
+            read_csv >> create_sql_cmd >> load_to_postgres >> move_file >> send_email
+      
       logging.info('----------------------- DAG process finished -----------------------')
 
 dag_dw_load_cli = dag_dw_load()
