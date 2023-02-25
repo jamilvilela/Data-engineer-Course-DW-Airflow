@@ -6,7 +6,7 @@ import os
 import shutil
 import pytz
 import airflow
-import airflow.utils as airflow_utils
+from airflow.utils.trigger_rule import TriggerRule
 from airflow.decorators import dag, task
 from airflow.operators.postgres_operator import PostgresOperator
 from airflow.utils.dates import days_ago
@@ -225,11 +225,8 @@ def dag_dw_load():
 
       logging.info('--------------------- Starting the DAG process ---------------------')
             
-   #   run_this_first = EmptyOperator(task_id="run_this_first")
-      
-   #   open_map_file_task = open_map_file(map_path)
-      
-    #  run_this_first >> open_map_file_task
+      join = EmptyOperator(task_id="join", trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
+      send_email_task = send_email('jamilvilela@gmail.com')
 
       for file_number in range(8):
 
@@ -252,14 +249,7 @@ def dag_dw_load():
             
             move_file_task = move_file(open_map_file_task['csv_file_name'], destiny)
             
-            if load_to_postgres_task:
-                  send_email_task = send_email('jamilvilela@gmail.com')
-
-            open_map_file_task >> read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task
-      
-      join = EmptyOperator(task_id="join")
-      
-      move_file_task >> join >> send_email_task
+            open_map_file_task >> read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join >> send_email_task
       
       logging.info('----------------------- DAG process finished -----------------------')
 
