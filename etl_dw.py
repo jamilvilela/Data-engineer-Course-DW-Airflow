@@ -12,7 +12,6 @@ from airflow.operators.postgres_operator import PostgresOperator
 from airflow.utils.dates import days_ago
 from airflow.operators.email import EmailOperator
 from airflow.operators.empty import EmptyOperator
-from airflow.operators.python_operator
 from datetime import datetime, timedelta
 
 #logging config
