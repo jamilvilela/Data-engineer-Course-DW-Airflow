@@ -12,6 +12,7 @@ from airflow.operators.postgres_operator import PostgresOperator
 from airflow.utils.dates import days_ago
 from airflow.operators.email import EmailOperator
 from airflow.operators.empty import EmptyOperator
+from airflow.operators.python_operator
 from datetime import datetime, timedelta
 
 #logging config
@@ -70,22 +71,21 @@ def dag_dw_load():
             
             return line
         
-      @task()
+      @task(task_id="open_map_file")
       def open_map_file(path: str):
             try:
                   
                   with open(path, 'r') as conf:
-                        map = json.loads(conf.read())
                         logging.debug(f'Open file: {path}')
+                        return json.loads(conf.read())
                         
             except FileNotFoundError as e:
                   raiseOnError(f'File not found. \nMSG: {e}')
             except IOError as e:
                   raiseOnError(f'Open error: {path}. \nMSG: {e}')
                   
-            return map
 
-      @task()    
+      @task(task_id="read_csv")    
       def read_csv(data_map: dict):
             """
             This function read the CSV file for loading into DW.
@@ -94,7 +94,7 @@ def dag_dw_load():
             
             data = []
 
-            if data_map == '':
+            if data_map is None:
                   raiseOnError('Data map file is invalid.')
             else:
                   file_name   = data_map['csv_file_name']
@@ -182,7 +182,7 @@ def dag_dw_load():
 
             return True
 
-      @task
+      @task()
       def move_file(file: str, destiny: str):
             '''
             This function moves the file to the detiny directory
@@ -212,7 +212,7 @@ def dag_dw_load():
             except Exception as e:
                   raiseOnError(f'Copy file error. \nMSG: {e}')
 
-      @task
+      @task()
       def send_email(dest: str):
             EmailOperator(task_id = 'send_email',
                           to =  dest,
@@ -225,34 +225,35 @@ def dag_dw_load():
 
       logging.info('--------------------- Starting the DAG process ---------------------')
             
-      run_this_first = EmptyOperator(task_id="run_this_first")
+   #   run_this_first = EmptyOperator(task_id="run_this_first")
       
-      map_file = open_map_file(map_path)
+      open_map_file_task = open_map_file(map_path)
       
-      run_this_first >> map_file
+    #  run_this_first >> open_map_file_task
 
       for file_number in range(8):
 
-            load_done = False
-            sql_cmd = ''
-            data = []
+            load_to_postgres_task = False
+            create_sql_cmd_task = ''
+            read_csv_task = []
             data_map = {}
             
-            data_map = map_file['params'][str(file_number)]
-            data     = read_csv(data_map)
-            sql_cmd  = create_sql_cmd(data, data_map)
-            load_done= load_to_postgres(sql_cmd)
+            data_map = open_map_file_task['params'][str(file_number)]
+            
+            read_csv_task         = read_csv(data_map)
+            create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
+            load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
 
             destiny = process_path 
-            if not load_done: #  there is an error
+            if not load_to_postgres_task: #  there is an error
                   destiny = error_path   
             
-            move_file(data_map['csv_file_name'], destiny)
+            move_file_task = move_file(data_map['csv_file_name'], destiny)
             
-            if load_done:
-                  send_email('jamilvilela@gmail.com')
+            if load_to_postgres_task:
+                  send_email_task = send_email('jamilvilela@gmail.com')
 
-            read_csv >> create_sql_cmd >> load_to_postgres >> move_file >> send_email
+            read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> send_email_task
       
       logging.info('----------------------- DAG process finished -----------------------')
 
