@@ -255,7 +255,11 @@ def dag_dw_load():
             if load_to_postgres_task:
                   send_email_task = send_email('jamilvilela@gmail.com')
 
-            open_map_file_task >> read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> send_email_task
+            open_map_file_task >> read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task
+      
+      join = EmptyOperator(task_id="join")
+      
+      move_file_task >> join >> send_email_task
       
       logging.info('----------------------- DAG process finished -----------------------')
 
