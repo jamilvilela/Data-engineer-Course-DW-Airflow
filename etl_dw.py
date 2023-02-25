@@ -216,7 +216,7 @@ def dag_dw_load():
       def send_email(dest: str):
             EmailOperator(task_id = 'send_email',
                           to =  dest,
-                          subject = 'Logistics - DW load' 
+                          subject = 'Logistics - DW load', 
                           html_content = 'The data load on PostgreSQL has been successfully completed.',
                           )
 
