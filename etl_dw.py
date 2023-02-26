@@ -239,7 +239,7 @@ def dag_dw_load():
             
             read_csv_task         = read_csv(data_map)
             create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
-            load_to_postgres_task = PostgresOperator(task_id = 'load_to_postgres',
+            load_to_postgres_task = PostgresOperator(task_id = 'load_op',
                                              sql = create_sql_cmd_task,
                                              postgres_conn_id = 'dw-postgresDB'
                                              )
