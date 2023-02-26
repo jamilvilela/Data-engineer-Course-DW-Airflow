@@ -161,26 +161,25 @@ def dag_dw_load():
 
             return sql_cmd
 
-      @task(task_id="load_to_postgres")
-      def load_to_postgres(sql_cmd: str) -> bool:
+      @task(task_id="load_to_postgres") 
+      def load_to_postgres(sql_cmd: str) -> PostgresOperator:
             """
             This function loads the data into Postgres using the SQL command.
             """
             logging.debug( sql_cmd )
             
-            if sql_cmd == '':
-                  raiseOnError(f'There is no SQL command to insert.')
+            if sql_cmd is None:
+                  raiseOnError(f'SQL command is empty.')
 
             try:
-                load = PostgresOperator(task_id = 'load_to_postgres',
-                                        sql = sql_cmd,
-                                        postgres_conn_id = 'dw-postgresDB',
-                                        dag = dag_dw_load)
-                load.execute()
+                return PostgresOperator(task_id = 'load_to_postgres',
+                                           sql = sql_cmd,
+                                           postgres_conn_id = 'dw-postgresDB',
+                                           dag = dag_dw_load)
+            #    load_op.execute()
             except Exception as e:
-                raiseOnError(f'Insert/update execution failed. \nMSG: {e}')
+                raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
 
-            return True
 
       @task(task_id="move_file")
       def move_file(file: str, destiny: str):
