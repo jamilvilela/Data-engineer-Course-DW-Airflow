@@ -86,7 +86,7 @@ def dag_dw_load():
                   
 
       @task(task_id="read_csv")    
-      def read_csv(data_map: dict, i: int) -> tuple[list, dict]:
+      def read_csv(data_map: dict) -> list:
             """
             This function read the CSV file for loading into DW.
             If the column names are different from data mapping config, this function will return an empty list
@@ -97,7 +97,6 @@ def dag_dw_load():
             if data_map is None:
                   raiseOnError('Data map file is invalid.')
             else:
-                  data_map = data_map[str(i)]
                   file_name   = data_map['csv_file_name']
                   fields_name = data_map['fields'].keys()
                   
@@ -125,7 +124,7 @@ def dag_dw_load():
                   except IOError as e:
                         raiseOnError(f'Open error: {file_name}. \nMSG: {e}') 
 
-            return [data, data_map]
+            return data
 
       @task(task_id="create_sql_cmd")
       def create_sql_cmd(data: list, data_map: dict) -> str:
@@ -231,15 +230,14 @@ def dag_dw_load():
       open_map_file_task = open_map_file(map_path)
 
       for i in range(8):
-
-            load_to_postgres_task = False
-            create_sql_cmd_task = ''
-            read_csv_task = []            
+                 
+            data_map = open_map_file_task['params'][str(i)]
+            csv_file_name = data_map['csv_file_name']
             
-            read_csv_task, data_map  = read_csv(open_map_file_task, i)
+            read_csv_task         = read_csv(data_map)
             create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
             load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
-            move_file_task        = move_file(data_map['csv_file_name'], process_path)
+            move_file_task        = move_file(csv_file_name, process_path)
             
             read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join >> send_email_task
       
