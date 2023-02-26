@@ -241,8 +241,8 @@ def dag_dw_load():
             create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
             load_to_postgres_task = PostgresOperator(task_id = 'load_to_postgres',
                                              sql = create_sql_cmd_task,
-                                             postgres_conn_id = 'dw-postgresDB',
-                                             dag = dag_dw_load)
+                                             postgres_conn_id = 'dw-postgresDB'
+                                             )
             move_file_task        = move_file(csv_file_name, processed_path)
             
             read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join >> send_email_task
