@@ -171,12 +171,14 @@ def dag_dw_load():
             if sql_cmd is None:
                   raiseOnError(f'SQL command is empty.')
 
-            try:                  
-                  return PostgresOperator(task_id = 'load_op',
-                                          sql = sql_cmd,
-                                          postgres_conn_id = 'dw-postgresDB',
-                                          dag = dag_dw_load)
-                  
+            try:
+                                    
+                  load_op = PostgresOperator(task_id = 'load_op',
+                                             sql = sql_cmd,
+                                             postgres_conn_id = 'dw-postgresDB',
+                                             dag = dag_dw_load)
+                  return load_op
+            
             except Exception as e:
                 raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
 
