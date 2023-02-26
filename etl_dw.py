@@ -26,7 +26,7 @@ map_path     = f'{project_path}/data-map/map.json'
 data_path    = f'{project_path}/data/'
 log_path     = f'{project_path}/log/{year}-{month}-{day}-log.txt'
 error_path   = f'{project_path}/error/{year}-{month}-{day}/'
-process_path = f'{project_path}/processed/{year}-{month}-{day}/'
+processed_path = f'{project_path}/processed/{year}-{month}-{day}/'
 
 logging.basicConfig(level=logging.INFO, 
                     filename=log_path, 
@@ -239,12 +239,13 @@ def dag_dw_load():
       for i in range(8):
                  
             data_map = open_map_file_task['params'][str(i)]
+            print(data_map)
             csv_file_name = data_map['csv_file_name']
             
             read_csv_task         = read_csv(data_map)
             create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
             load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
-            move_file_task        = move_file(csv_file_name, process_path)
+            move_file_task        = move_file(csv_file_name, processed_path)
             
             read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join >> send_email_task
       
