@@ -161,6 +161,7 @@ def dag_dw_load():
 
             return sql_cmd
 
+      '''
       @task #(task_id="load_to_postgres") 
       def load_to_postgres(sql_cmd: str) -> PostgresOperator:
             """
@@ -180,7 +181,7 @@ def dag_dw_load():
             
             except Exception as e:
                 raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
-
+      '''
 
       @task(task_id="move_file")
       def move_file(file: str, destiny: str):
@@ -238,7 +239,10 @@ def dag_dw_load():
             
             read_csv_task         = read_csv(data_map)
             create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
-            load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
+            load_to_postgres_task = PostgresOperator(task_id = 'load_to_postgres',
+                                             sql = create_sql_cmd_task,
+                                             postgres_conn_id = 'dw-postgresDB',
+                                             dag = dag_dw_load)
             move_file_task        = move_file(csv_file_name, processed_path)
             
             read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join >> send_email_task
