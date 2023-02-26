@@ -71,13 +71,13 @@ def dag_dw_load():
             return line
         
       @task(task_id="open_map_file")
-      def open_map_file(path: str, i: int) -> dict:
+      def open_map_file(path: str) -> dict:
             try:
                   
                   with open(path, 'r') as conf:
                         logging.debug(f'Open file: {path}')
                         map = json.loads(conf.read())
-                        return map['params'][str(i)]
+                        return map['params']
                   
             except FileNotFoundError as e:
                   raiseOnError(f'File not found. \nMSG: {e}')
@@ -86,7 +86,7 @@ def dag_dw_load():
                   
 
       @task(task_id="read_csv")    
-      def read_csv(data_map: dict) -> list:
+      def read_csv(data_map: dict, i: int) -> tuple[list, dict]:
             """
             This function read the CSV file for loading into DW.
             If the column names are different from data mapping config, this function will return an empty list
@@ -97,6 +97,7 @@ def dag_dw_load():
             if data_map is None:
                   raiseOnError('Data map file is invalid.')
             else:
+                  data_map = data_map[str(i)]
                   file_name   = data_map['csv_file_name']
                   fields_name = data_map['fields'].keys()
                   
@@ -124,7 +125,7 @@ def dag_dw_load():
                   except IOError as e:
                         raiseOnError(f'Open error: {file_name}. \nMSG: {e}') 
 
-            return data
+            return data, data_map
 
       @task(task_id="create_sql_cmd")
       def create_sql_cmd(data: list, data_map: dict) -> str:
@@ -176,7 +177,7 @@ def dag_dw_load():
                                            sql = sql_cmd,
                                            postgres_conn_id = 'dw-postgresDB',
                                            dag = dag_dw_load)
-            #    load_op.execute()
+            
             except Exception as e:
                 raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
 
@@ -227,28 +228,22 @@ def dag_dw_load():
       join = EmptyOperator(task_id="join", trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
       send_email_task = send_email('jamilvilela@gmail.com')
 
-      for file_number in range(8):
+      open_map_file_task = open_map_file(map_path)
+
+      for i in range(8):
 
             load_to_postgres_task = False
             create_sql_cmd_task = ''
-            read_csv_task = []
-            
-            
-            open_map_file_task = open_map_file(map_path, file_number)
+            read_csv_task = []            
             
 #            data_map = open_map_file_task['params'][str(file_number)]
             
-            read_csv_task         = read_csv(open_map_file_task)
-            create_sql_cmd_task   = create_sql_cmd(read_csv_task, open_map_file_task)
+            read_csv_task, data_map  = read_csv(open_map_file_task, i)
+            create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
             load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
-
-            destiny = process_path 
-            if not load_to_postgres_task: #  there is an error
-                  destiny = error_path   
+            move_file_task        = move_file(data_map['csv_file_name'], process_path)
             
-            move_file_task = move_file(open_map_file_task['csv_file_name'], destiny)
-            
-            open_map_file_task >> read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join >> send_email_task
+            read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join >> send_email_task
       
       logging.info('----------------------- DAG process finished -----------------------')
 
