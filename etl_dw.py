@@ -172,10 +172,15 @@ def dag_dw_load():
                   raiseOnError(f'SQL command is empty.')
 
             try:
-                return PostgresOperator(task_id = 'load_to_postgres',
-                                           sql = sql_cmd,
-                                           postgres_conn_id = 'dw-postgresDB',
-                                           dag = dag_dw_load)
+                  params={'user': 'admin',
+                           'port': '5432',
+                           'database': 'postgresDB'
+                  }
+                  return PostgresOperator(task_id = 'load_to_postgres',
+                                          sql = sql_cmd,
+                                          postgres_conn_id = 'dw-postgresDB',
+                                          params = params,
+                                          dag = dag_dw_load)
             
             except Exception as e:
                 raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
