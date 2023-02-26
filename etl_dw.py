@@ -125,7 +125,7 @@ def dag_dw_load():
                   except IOError as e:
                         raiseOnError(f'Open error: {file_name}. \nMSG: {e}') 
 
-            return data, data_map
+            return [data, data_map]
 
       @task(task_id="create_sql_cmd")
       def create_sql_cmd(data: list, data_map: dict) -> str:
@@ -235,8 +235,6 @@ def dag_dw_load():
             load_to_postgres_task = False
             create_sql_cmd_task = ''
             read_csv_task = []            
-            
-#            data_map = open_map_file_task['params'][str(file_number)]
             
             read_csv_task, data_map  = read_csv(open_map_file_task, i)
             create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
