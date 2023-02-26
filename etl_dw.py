@@ -171,16 +171,10 @@ def dag_dw_load():
             if sql_cmd is None:
                   raiseOnError(f'SQL command is empty.')
 
-            try:
-                  params={'user': 'admin',
-                           'port': '5433',
-                           'database': 'postgresDB'
-                  }
-                  
-                  return PostgresOperator(task_id = 'load_to_postgres',
+            try:                  
+                  return PostgresOperator(task_id = 'load_op',
                                           sql = sql_cmd,
                                           postgres_conn_id = 'dw-postgresDB',
-                                          params = params,
                                           dag = dag_dw_load)
                   
             except Exception as e:
