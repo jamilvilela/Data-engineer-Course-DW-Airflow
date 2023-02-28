@@ -234,7 +234,7 @@ def dag_dw_load():
             
       join  = DummyOperator(task_id="join", trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
       start = DummyOperator(task_id="start")
-      finish = DummyOperator(task_id="start")
+      finish = DummyOperator(task_id="finish")
 
       send_email_task = send_email('jamilvilela@gmail.com')
       open_map_file_task = open_map_file(map_path)
