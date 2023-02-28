@@ -162,32 +162,30 @@ def dag_dw_load():
 
             return sql_cmd
 
-      
-      @task(task_id="load_to_postgres", multiple_outputs=True) 
-      def load_to_postgres(sql_cmd: str):
-            """
-            This function loads the data into Postgres using the SQL command.
-            """
-            
-            if sql_cmd is None:
-                  raiseOnError(f'SQL command is empty.')
-
-            logging.debug( sql_cmd )
-
-            try:
-                                          
-                  load_op = PostgresOperator(   task_id = 'load_op',
-                                                sql = sql_cmd,
-                                                postgres_conn_id = 'dw-postgresDB',
-                                                dag = dag_dw_load
-                                                )
-                  return load_op
+      with TaskGroup(group_id='load_group') as load_group:
+            @task(task_id="load_to_postgres") 
+            def load_to_postgres(sql_cmd: str):
+                  """
+                  This function loads the data into Postgres using the SQL command.
+                  """
                   
-            except Exception as e:
-                  raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
-                  
+                  if sql_cmd is None:
+                        raiseOnError(f'SQL command is empty.')
 
-      
+                  logging.debug( sql_cmd )
+
+                  try:
+                                                
+                        load_op = PostgresOperator(   task_id = 'load_op',
+                                                      sql = sql_cmd,
+                                                      postgres_conn_id = 'dw-postgresDB',
+                                                      dag = dag_dw_load
+                                                      )
+                        return load_op
+                        
+                  except Exception as e:
+                        raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
+
 
       @task(task_id="move_file")
       def move_file(file: str, destiny: str):
@@ -232,9 +230,9 @@ def dag_dw_load():
 
       print('--------------------- Starting the DAG process ---------------------')
             
-      join  = DummyOperator(task_id="join", trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
-      start = DummyOperator(task_id="start")
+      start  = DummyOperator(task_id="start")
       finish = DummyOperator(task_id="finish")
+      join   = DummyOperator(task_id="join", trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
 
       send_email_task = send_email('jamilvilela@gmail.com')
       open_map_file_task = open_map_file(map_path)
@@ -258,7 +256,7 @@ def dag_dw_load():
             '''
             move_file_task        = move_file(csv_file_name, processed_path)
             
-            read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join
+            read_csv_task >> create_sql_cmd_task >> load_group >> move_file_task >> join
       
       join >> send_email_task >> finish
       
