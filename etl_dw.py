@@ -162,29 +162,28 @@ def dag_dw_load():
 
             return sql_cmd
 
-      with TaskGroup(group_id='load_group') as load_group:
-            @task(task_id="load_to_postgres") 
-            def load_to_postgres(sql_cmd: str):
-                  """
-                  This function loads the data into Postgres using the SQL command.
-                  """
+      @task(task_id="load_to_postgres") 
+      def load_to_postgres(sql_cmd: str):
+            """
+            This function loads the data into Postgres using the SQL command.
+            """
                   
-                  if sql_cmd is None:
-                        raiseOnError(f'SQL command is empty.')
+            if sql_cmd is None:
+                  raiseOnError(f'SQL command is empty.')
 
-                  logging.debug( sql_cmd )
+            logging.debug( sql_cmd )
 
-                  try:
+            try:
                                                 
-                        load_op = PostgresOperator(   task_id = 'load_op',
-                                                      sql = sql_cmd,
-                                                      postgres_conn_id = 'dw-postgresDB',
-                                                      dag = dag_dw_load
-                                                      )
-                        return load_op
+                  load_op = PostgresOperator(   task_id = 'load_op',
+                                                sql = sql_cmd,
+                                                postgres_conn_id = 'dw-postgresDB',
+                                                dag = dag_dw_load
+                                                 )
+                  return load_op
                         
-                  except Exception as e:
-                        raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
+            except Exception as e:
+                  raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
 
 
       @task(task_id="move_file")
@@ -247,16 +246,16 @@ def dag_dw_load():
             
             read_csv_task         = read_csv(data_map)
             create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
-            load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
-            '''
-            load_to_postgres_task = PostgresOperator(task_id = 'load_op',
+            #load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
+            
+            load_to_postgres_task = PostgresOperator(task_id = 'load_to_postgres',
                                                       sql = create_sql_cmd_task,
                                                       postgres_conn_id = 'dw-postgresDB',
                                                       dag = dag_dw_load)
-            '''
+            
             move_file_task        = move_file(csv_file_name, processed_path)
             
-            read_csv_task >> create_sql_cmd_task >> load_group >> move_file_task >> join
+            read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join
       
       join >> send_email_task >> finish
       
