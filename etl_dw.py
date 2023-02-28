@@ -161,7 +161,7 @@ def dag_dw_load():
             logging.info( f'Total commands: {len(data)}' )
 
             return sql_cmd
-
+      '''
       @task(task_id="load_to_postgres") 
       def load_to_postgres(sql_cmd: str):
             """
@@ -184,7 +184,7 @@ def dag_dw_load():
                         
             except Exception as e:
                   raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
-
+      '''
 
       @task(task_id="move_file")
       def move_file(file: str, destiny: str):
