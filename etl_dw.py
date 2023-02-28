@@ -7,15 +7,16 @@ import shutil
 import pytz
 import airflow
 from airflow.utils.trigger_rule import TriggerRule
-from airflow.utils.task_group import TaskGroup
 from airflow.utils.dates import days_ago
 from airflow.decorators import dag, task
-from airflow.operators.postgres_operator import PostgresOperator
+from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.operators.email import EmailOperator
 from airflow.operators.dummy import DummyOperator
 from datetime import datetime, timedelta
 
-#logging config
+log = logging.getLogger(__name__)
+
+#log config
 br_tz = pytz.timezone('America/Sao_Paulo')
 dt_now = datetime.now(br_tz)
 year = dt_now.strftime('%Y')
@@ -29,7 +30,7 @@ log_path     = f'{project_path}/log/{year}-{month}-{day}-log.txt'
 error_path   = f'{project_path}/error/{year}-{month}-{day}/'
 processed_path = f'{project_path}/processed/{year}-{month}-{day}/'
 
-logging.basicConfig(level=logging.INFO, 
+log.basicConfig(level=log.INFO, 
                     filename=log_path, 
                     format='%(asctime)s | %(levelname)s | %(message)s',
                     filemode='a')
@@ -47,16 +48,16 @@ default_args = {
       default_args = default_args,
       schedule_interval = '0 0/2 * * *',
       dagrun_timeout = timedelta(minutes=60),
-      description = 'Loading into DW',
+      description = 'Loading into DW-Logistics. Read csv files and load into the PostgreSQL database.',
       start_date = days_ago(1)
 )
-def dag_dw_load():
+def dag_dw_logistics():
 
       def raiseOnError(error_message: str):
             """
             This function will be executed after error handling through the flow
             """
-            logging.error(error_message)
+            log.error(error_message)
             raise ValueError(error_message)
       
       def quotify(line: dict, data_map: dict):
@@ -76,7 +77,7 @@ def dag_dw_load():
             try:
                   
                   with open(path, 'r') as conf:
-                        logging.debug(f'Open file: {path}')
+                        log.debug(f'Open file: {path}')
                         map = json.loads(conf.read())
                         return map['params']
                   
@@ -104,7 +105,7 @@ def dag_dw_load():
                   try:
                         with open(f'{data_path}{file_name}', 'r') as file:
                               reader = csv.DictReader(file)
-                              logging.info(f'Open file: {file_name}')
+                              log.info(f'Open file: {file_name}')
 
                               if collections.Counter(reader.fieldnames) != collections.Counter(fields_name):   
                                     raiseOnError('The file columns are different from the data mapping. \nIngestion can not continue.')
@@ -114,7 +115,7 @@ def dag_dw_load():
                                     data.append(line)
                               
                               lines_qty = len(data)
-                              logging.info(f'Total lines read: {lines_qty}')
+                              log.info(f'Total lines read: {lines_qty}')
                   
                               # if file exists but no data
                               if lines_qty <= 0:
@@ -158,7 +159,7 @@ def dag_dw_load():
                               do update set {update_fields};
                               ''' 
                                     
-            logging.info( f'Total commands: {len(data)}' )
+            log.info( f'Total commands: {len(data)}' )
 
             return sql_cmd
       '''
@@ -171,7 +172,7 @@ def dag_dw_load():
             if sql_cmd is None:
                   raiseOnError(f'SQL command is empty.')
 
-            logging.debug( sql_cmd )
+            log.debug( sql_cmd )
 
             try:
                                                 
@@ -211,7 +212,7 @@ def dag_dw_load():
                   
                   shutil.copyfile(f'{data_path}{file}', f'{destiny}{new_file}')
                   #shutil.move(f'{data_path}{file}', f'{destiny}{new_file}')
-                  logging.info(f'File {file} moved to {new_file}.')
+                  log.info(f'File {file} moved to {new_file}.')
                   
             except Exception as e:
                   raiseOnError(f'Copy file error. \nMSG: {e}')
@@ -227,7 +228,7 @@ def dag_dw_load():
       # upstram
       # loop reading all source files      
 
-      print('--------------------- Starting the DAG process ---------------------')
+      log.info('--------------------- Starting the DAG process ---------------------')
             
       start  = DummyOperator(task_id="start")
       finish = DummyOperator(task_id="finish")
@@ -248,10 +249,10 @@ def dag_dw_load():
             create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
             #load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
             
-            load_to_postgres_task = PostgresOperator(task_id = 'load_to_postgres',
+            load_to_postgres_task = PostgresOperator(task_id = f'loading_{csv_file_name}',
                                                       sql = create_sql_cmd_task,
                                                       postgres_conn_id = 'dw-postgresDB',
-                                                      dag = dag_dw_load)
+                                                      dag = dag_dw_logistics)
             
             move_file_task        = move_file(csv_file_name, processed_path)
             
@@ -259,6 +260,6 @@ def dag_dw_load():
       
       join >> send_email_task >> finish
       
-      logging.info('----------------------- DAG process finished -----------------------')
+      log.info('----------------------- DAG process finished -----------------------')
 
-dag_dw_load()
+dag_dw_logistics()
