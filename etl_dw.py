@@ -7,11 +7,12 @@ import shutil
 import pytz
 import airflow
 from airflow.utils.trigger_rule import TriggerRule
+from airflow.utils.task_group import TaskGroup
+from airflow.utils.dates import days_ago
 from airflow.decorators import dag, task
 from airflow.operators.postgres_operator import PostgresOperator
-from airflow.utils.dates import days_ago
 from airflow.operators.email import EmailOperator
-from airflow.operators.empty import EmptyOperator
+from airflow.operators.dummy import DummyOperator
 from datetime import datetime, timedelta
 
 #logging config
@@ -161,25 +162,31 @@ def dag_dw_load():
 
             return sql_cmd
 
-       
-      def load_to_postgres(sql_cmd: str) -> PostgresOperator:
+      
+      @task(task_id="load_to_postgres", multiple_outputs=True) 
+      def load_to_postgres(sql_cmd: str):
             """
             This function loads the data into Postgres using the SQL command.
             """
-            logging.debug( sql_cmd )
             
             if sql_cmd is None:
                   raiseOnError(f'SQL command is empty.')
 
+            logging.debug( sql_cmd )
+
             try:
-                                    
-                  return PostgresOperator(task_id = 'load_to_postgres',
-                                             sql = sql_cmd,
-                                             postgres_conn_id = 'dw-postgresDB',
-                                             dag = dag_dw_load)
-            
+                                          
+                  load_op = PostgresOperator(   task_id = 'load_op',
+                                                sql = sql_cmd,
+                                                postgres_conn_id = 'dw-postgresDB',
+                                                dag = dag_dw_load
+                                                )
+                  return load_op
+                  
             except Exception as e:
-                raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
+                  raiseOnError(f'Insert/update execution failed with SQL command: {sql_cmd}. \nMSG: {e}')
+                  
+
       
 
       @task(task_id="move_file")
@@ -223,12 +230,16 @@ def dag_dw_load():
       # upstram
       # loop reading all source files      
 
-      logging.info('--------------------- Starting the DAG process ---------------------')
+      print('--------------------- Starting the DAG process ---------------------')
             
-      join = EmptyOperator(task_id="join", trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
-      send_email_task = send_email('jamilvilela@gmail.com')
+      join  = DummyOperator(task_id="join", trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
+      start = DummyOperator(task_id="start")
+      finish = DummyOperator(task_id="start")
 
+      send_email_task = send_email('jamilvilela@gmail.com')
       open_map_file_task = open_map_file(map_path)
+      
+      start >> open_map_file_task
 
       for i in range(8):
                  
@@ -239,10 +250,18 @@ def dag_dw_load():
             read_csv_task         = read_csv(data_map)
             create_sql_cmd_task   = create_sql_cmd(read_csv_task, data_map)
             load_to_postgres_task = load_to_postgres(create_sql_cmd_task)
+            '''
+            load_to_postgres_task = PostgresOperator(task_id = 'load_op',
+                                                      sql = create_sql_cmd_task,
+                                                      postgres_conn_id = 'dw-postgresDB',
+                                                      dag = dag_dw_load)
+            '''
             move_file_task        = move_file(csv_file_name, processed_path)
             
-            read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join >> send_email_task
+            read_csv_task >> create_sql_cmd_task >> load_to_postgres_task >> move_file_task >> join
+      
+      join >> send_email_task >> finish
       
       logging.info('----------------------- DAG process finished -----------------------')
 
-dag_dw_load_cli = dag_dw_load()
+dag_dw_load()
